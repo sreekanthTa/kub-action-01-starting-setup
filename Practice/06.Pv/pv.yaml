@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistanceVolumne
+metadata:
+  name: demo-pv
+  namespace: dev
+spec:
+  Capacity:
+    storage: 1Gi
+  accessModes: ["ReadWriteOnce"]
+  hostPath:
+    path: /data/demo 

@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-to-api-reader
+  namespace: dev
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+  ---
+
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: pod-to-api-reader-binding
+    namespace: dev
+  subjects:
+    kind: ServiceAccount
+    name: demo-sa
+  roleRef:
+    kind: Role
+    name: pod-to-api-reader
+    apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ConfigMap_dev
+  namespace: dev
+data:
+  APP_MESSAGE: "HELLO WORLD FROM CONFIGMAP"
