@@ -1,0 +1,297 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: dev 
+data:
+  APP_MESSAGE: "Hello from Kubernets configMap"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secrets
+  namespace: dev
+type: Opaque
+data:
+  APP_PASSWORD: YWRtaW4=
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: dev
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_USER: postgres
+  POSTGRES_DB: testdb
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-pv
+  namespace: dev
+spec:
+  accessModes: ["ReadWriteOnce"]
+  capacity:
+    storage: 1Gi
+  hostPath:
+    path: /data/demo
+  
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-pvc
+  namespace: dev
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-service-account
+  namespace: dev
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: test-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-rolebinding
+  namespace: dev
+subjects:
+- name: test-service-account
+  namespace: dev
+  kind: ServiceAccount
+roleRef:
+  kind: Role
+  name: test-role
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: test-api
+  template:
+    metadata:
+      labels:
+        name: test-api
+    spec:
+      serviceAccountName: test-service-account
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:13
+        command: ['sh', '-c', 'until pg_isready -h test-statefulset-service -p 5432; do echo waiting for postgres; sleep 2; done;']
+      containers:
+        - name: app
+          image: app:1
+          ports:
+           - containerPort: 3030
+          env:
+           - name: APP_MESSAGE
+             valueFrom:
+               configMapKeyRef:
+                 name: test-config
+                 key: APP_MESSAGE
+           - name: APP_PASSWORD
+             valueFrom:
+               secretKeyRef:
+                 name: test-secrets
+                 key: APP_PASSWORD
+           - name: DB_HOST
+             value: "test-statefulset-service"
+           - name: DB_PORT
+             value: "5432"
+           - name: DB_USER
+             value: "postgres"
+           - name: DB_PASSWORD
+             value: "postgres"
+           - name: DB_NAME
+             value: "testdb"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3030
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 3030
+        
+      volumes:
+       - name: data
+         persistentVolumeClaim:
+          claimName: test-pvc
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+  namespace: dev
+spec:
+  type: NodePort
+  selector:
+    name: test-api
+  ports:
+    - port: 80
+      targetPort: 3030
+      nodePort: 30080
+
+
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ingress
+  namespace: dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: test.example.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: test-service
+              port:
+                number: 80
+
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-statefulset-service
+  namespace: dev
+spec:
+  clusterIP: None
+  selector:
+    app: test-statefulset
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test-statefulset
+  namespace: dev
+spec:
+  serviceName: "test-statefulset-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-statefulset
+  template:
+    metadata:
+      labels:
+        app: test-statefulset
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_DB
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U postgres
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+          - name: pgdata
+            mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
