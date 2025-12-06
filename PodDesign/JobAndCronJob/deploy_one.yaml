@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+   name: deploy-app
+spec:
+  template:
+    metadata:
+      labels:
+        name: deploy-app
+    spec:
+      containers:
+      - name: local-image
+        image: app:v1
+      restartPolicy: OnFailure
+  backoffLimit: 10
+  completions: 2
+  # parallelism: 5
