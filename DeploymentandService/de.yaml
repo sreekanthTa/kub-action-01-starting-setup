@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dep
+  name: dep
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: dep
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+          - containerPort: 80
+        resources:
+          requests:
+            cpu: 2
+            memory: "150Mi"
+          limits:
+            cpu: 3
+            memory: "3Gi"
+        env:
+          - name: APP_NAME
+            value: "test_value"
+
+status: {}
