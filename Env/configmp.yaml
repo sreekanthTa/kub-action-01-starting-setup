@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: configmap-test
+data:
+  APP_AGE_CONF: "10"
+  APP_NAME_CONF: CONFIG_MAP_NAME
+
