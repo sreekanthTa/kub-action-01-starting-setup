@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: test-dep
+  name: test-dep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-dep
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: test-dep
+    spec:
+      serviceAccountName: servi
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+          - containerPort: 80
+        resources: {}
+status: {}
