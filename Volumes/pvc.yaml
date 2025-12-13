@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-storage
+spec:
+  selector:
+   matchLabels:
+     app: pv
+  resources:
+    requests:
+      storage: 500Mi
+  accessModes: ["ReadWriteMany", "ReadWriteOnce"]
